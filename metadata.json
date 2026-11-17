@@ -1,0 +1,6 @@
+{
+  "name": "FloraView Dagupan",
+  "description": "3D flower bouquet studio, AR tabletop visualization, pickup-only reservation counters, and live ticket tracking in Dagupan City.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
