@@ -352,15 +352,14 @@ export function buildBouquet3D(
 
   function buildSunflowerHead(): THREE.Group {
     const head = new THREE.Group();
-    // Tilt bloom upright toward front viewer instead of lying flat horizontally
-    head.rotation.x = 0.62;
+    head.rotation.x = 0.28;
 
     const discGeo = track(new THREE.CylinderGeometry(0.18, 0.14, 0.06, 24));
     const disc = new THREE.Mesh(discGeo, sunflowerDiscMat);
     disc.castShadow = true;
     head.add(disc);
 
-    // Two staggered rings of 16 golden ray florets framing upright disc
+    // Two staggered rings of 16 golden ray florets
     for (let ring = 0; ring < 2; ring++) {
       const count = 16;
       for (let i = 0; i < count; i++) {
@@ -372,7 +371,7 @@ export function buildBouquet3D(
           Math.sin(a) * (0.14 + ring * 0.015),
         );
         ray.rotation.y = -a + Math.PI / 2;
-        ray.rotation.x = ring === 0 ? 1.12 : 1.28;
+        ray.rotation.x = ring === 0 ? 1.25 : 1.42;
         ray.castShadow = true;
         head.add(ray);
       }
@@ -416,10 +415,10 @@ export function buildBouquet3D(
 
   function buildOrchidHead(): THREE.Group {
     const head = new THREE.Group();
-    // 2 upright stacked Phalaenopsis butterfly blossoms along a vertical spire
+    // 2 cascading Phalaenopsis butterfly blossoms
     const blossomOffsets = [
-      { y: 0.14, z: 0.03, scale: 0.96, rotX: 0.08 },
-      { y: -0.06, z: 0.09, scale: 0.88, rotX: 0.15 },
+      { y: 0.0, z: 0.04, scale: 1.0, rotX: 0.25 },
+      { y: -0.18, z: 0.12, scale: 0.88, rotX: 0.35 },
     ];
 
     blossomOffsets.forEach((b) => {
@@ -428,12 +427,12 @@ export function buildBouquet3D(
       floret.scale.setScalar(b.scale);
       floret.rotation.x = b.rotX;
 
-      // Dorsal sepal + 2 broad lateral butterfly petals + 2 lower sepals standing upright
+      // Dorsal sepal + 2 broad lateral butterfly petals + 2 lower sepals
       const angles = [0, 1.15, -1.15, 2.45, -2.45];
       angles.forEach((ang, idx) => {
         const wing = new THREE.Mesh(orchidWingGeo, orchidPetalMat);
         wing.rotation.z = ang;
-        wing.rotation.x = 1.45;
+        wing.rotation.x = 1.25;
         if (idx === 1 || idx === 2) {
           wing.scale.set(1.25, 1.05, 1);
         }
@@ -456,17 +455,17 @@ export function buildBouquet3D(
 
   function buildSampaguitaHead(): THREE.Group {
     const head = new THREE.Group();
-    // Cluster of 3 fragrant 8-petal jasmine blossoms with clean spacing between florets
+    // Cluster of 3 fragrant 8-petal jasmine blossoms
     const clusterPositions = [
-      new THREE.Vector3(0, 0.08, 0),
-      new THREE.Vector3(-0.125, -0.02, 0.08),
-      new THREE.Vector3(0.125, -0.01, -0.07),
+      new THREE.Vector3(0, 0.04, 0),
+      new THREE.Vector3(-0.09, -0.01, 0.06),
+      new THREE.Vector3(0.09, 0.0, -0.05),
     ];
 
     clusterPositions.forEach((pos, idx) => {
       const blossom = new THREE.Group();
       blossom.position.copy(pos);
-      blossom.rotation.set(idx * 0.16, idx * 1.1, (idx - 1) * 0.2);
+      blossom.rotation.set(idx * 0.2, idx * 1.1, (idx - 1) * 0.25);
 
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
@@ -541,15 +540,13 @@ export function buildBouquet3D(
 
   speciesList.forEach((sp, idx) => {
     const frac = total === 1 ? 0 : idx / (total - 1);
-    const radialDist = total === 1 ? 0 : 0.08 + Math.sqrt(frac) * 0.56;
+    const radialDist = 0.05 + Math.sqrt(frac) * 0.44;
     const angle = idx * goldenAngle;
     const targetX = Math.cos(angle) * radialDist;
     const targetZ = Math.sin(angle) * radialDist;
 
-    // Tall upright vertical stems with distinct vertical tiering so blooms never crowd or collide
-    const tierOffset = ((idx % 3) - 1) * 0.08;
-    const speciesLift = sp === 'eucalyptus' || sp === 'orchid' ? 0.18 : 0;
-    const baseHeight = 1.92 - frac * 0.36 + tierOffset + speciesLift;
+    // Dome height profile: taller in center, gracefully cascading toward rim
+    const baseHeight = 1.48 - frac * 0.24 + (sp === 'eucalyptus' || sp === 'orchid' ? 0.12 : 0);
     const stemGroup = createCurvedStem(
       baseHeight,
       targetX,
@@ -583,15 +580,14 @@ export function buildBouquet3D(
     }
 
     head.position.set(targetX, baseHeight, targetZ);
-    head.scale.setScalar(0.84);
-    // Keep blooms standing tall vertically with gentle separation outward
-    head.rotation.z = -targetX * 0.18;
-    head.rotation.x += targetZ * 0.18;
+    // Tilt bloom outward slightly along radial vector for natural dome silhouette
+    head.rotation.z = -targetX * 0.55;
+    head.rotation.x += targetZ * 0.55;
     stemGroup.add(head);
 
     // Store exploded-view vector for smooth damping in animation loop
     const basePos = new THREE.Vector3(0, 0.25, 0);
-    const explodeOffset = new THREE.Vector3(targetX * 0.9, 0.3 + (1 - frac) * 0.24, targetZ * 0.9);
+    const explodeOffset = new THREE.Vector3(targetX * 0.85, 0.28 + (1 - frac) * 0.22, targetZ * 0.85);
     stemGroup.position.copy(basePos);
     stemGroup.userData.basePos = basePos;
     stemGroup.userData.explodeOffset = explodeOffset;
@@ -601,18 +597,18 @@ export function buildBouquet3D(
     stemGroups.push(stemGroup);
   });
 
-  // Sculpted Tall Vertical Wrapping Paper Cone & Pleated Collar (grounded at y = 0)
+  // Sculpted Wrapping Paper Cone & Pleated Collar (grounded at y = 0)
   const wrapperGroup = new THREE.Group();
 
-  // Tall pleated wrap cone seated cleanly below the airy bloom canopy
+  // Outer pleated wrap cone using LatheGeometry with flared top lip
   const wrapPoints = [
     new THREE.Vector2(0.08, 0.24),
-    new THREE.Vector2(0.10, 0.44),
-    new THREE.Vector2(0.13, 0.68),
-    new THREE.Vector2(0.28, 1.0),
-    new THREE.Vector2(0.46, 1.26),
-    new THREE.Vector2(0.60, 1.42),
-    new THREE.Vector2(0.64, 1.48),
+    new THREE.Vector2(0.11, 0.42),
+    new THREE.Vector2(0.14, 0.62),
+    new THREE.Vector2(0.28, 0.92),
+    new THREE.Vector2(0.48, 1.24),
+    new THREE.Vector2(0.62, 1.44),
+    new THREE.Vector2(0.66, 1.48),
   ];
   const outerWrapGeo = track(new THREE.LatheGeometry(wrapPoints, 32));
   // Add organic pleat ripples around the upper collar
@@ -623,10 +619,10 @@ export function buildBouquet3D(
     const vz = wPos.getZ(i);
     const r = Math.hypot(vx, vz);
     const ang = Math.atan2(vz, vx);
-    const heightFactor = Math.max(0, (vy - 0.68) / 0.80);
-    const pleat = Math.sin(ang * 9) * 0.028 * heightFactor;
+    const heightFactor = Math.max(0, (vy - 0.62) / 0.86);
+    const pleat = Math.sin(ang * 9) * 0.035 * heightFactor;
     const scaleR = r > 0.001 ? (r + pleat) / r : 1;
-    wPos.setXYZ(i, vx * scaleR, vy + Math.cos(ang * 5) * 0.028 * heightFactor, vz * scaleR);
+    wPos.setXYZ(i, vx * scaleR, vy + Math.cos(ang * 5) * 0.03 * heightFactor, vz * scaleR);
   }
   outerWrapGeo.computeVertexNormals();
   const outerWrapMesh = new THREE.Mesh(outerWrapGeo, wrapOuterMat);
@@ -634,12 +630,12 @@ export function buildBouquet3D(
   outerWrapMesh.receiveShadow = true;
   wrapperGroup.add(outerWrapMesh);
 
-  // Inner tissue paper liner standing gracefully below the flower heads
+  // Inner tissue paper liner slightly taller at back
   const innerPoints = [
     new THREE.Vector2(0.075, 0.28),
-    new THREE.Vector2(0.125, 0.68),
-    new THREE.Vector2(0.43, 1.28),
-    new THREE.Vector2(0.58, 1.52),
+    new THREE.Vector2(0.13, 0.64),
+    new THREE.Vector2(0.44, 1.26),
+    new THREE.Vector2(0.59, 1.52),
   ];
   const innerWrapGeo = track(new THREE.LatheGeometry(innerPoints, 28));
   const innerWrapMesh = new THREE.Mesh(innerWrapGeo, wrapInnerTissueMat);
@@ -653,13 +649,13 @@ export function buildBouquet3D(
   wrapperGroup.add(bundleMesh);
 
   // Satin Ribbon Neck Collar + Sculpted Double-Loop Bow
-  const collarGeo = track(new THREE.CylinderGeometry(0.138, 0.134, 0.09, 24, 1, true));
-  collarGeo.translate(0, 0.68, 0);
+  const collarGeo = track(new THREE.CylinderGeometry(0.148, 0.144, 0.09, 24, 1, true));
+  collarGeo.translate(0, 0.62, 0);
   const collarMesh = new THREE.Mesh(collarGeo, ribbonMat);
   wrapperGroup.add(collarMesh);
 
   const bowGroup = new THREE.Group();
-  bowGroup.position.set(0, 0.68, 0.145);
+  bowGroup.position.set(0, 0.62, 0.155);
 
   const knotGeo = track(new THREE.SphereGeometry(0.038, 12, 10));
   knotGeo.scale(1.1, 0.9, 0.85);

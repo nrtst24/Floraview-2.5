@@ -142,7 +142,7 @@ const SEED_SHOPS: StoredShop[] = [
     specialty: 'Sculpted Garden Roses & Benguet Stems',
     distanceKm: 1.6,
     image: '',
-    imageKey: 'heroAtelier',
+    imageKey: 'shopLucao',
     isOpen: true,
   },
   {
@@ -193,7 +193,7 @@ const SEED_SHOPS: StoredShop[] = [
     specialty: 'Phalaenopsis Orchids & Stargazer Lilies',
     distanceKm: 1.4,
     image: '',
-    imageKey: 'stargazerOrchid',
+    imageKey: 'shopTapuac',
     isOpen: true,
   },
 ];
@@ -243,7 +243,7 @@ const SEED_CATALOG: StoredCatalogBouquet[] = [
       'Inspired by golden hour along Bonuan Tondaligan Beach—radiant Pangasinan sunflowers paired with coral garden roses and eucalyptus in unbleached kraft linen.',
     careTip: 'Sunflowers drink generously; top up cool water daily for a full 10-day bloom.',
     image: '',
-    imageKey: 'solarSunflower',
+    imageKey: 'tondaliganSunburst',
     inStock: true,
     defaultConfig: {
       title: 'Tondaligan Golden Sunburst',
@@ -297,7 +297,7 @@ const SEED_CATALOG: StoredCatalogBouquet[] = [
       'A balanced celebration of Dagupan City’s coastal warmth and highland artistry—combining sunflowers, stargazer lilies, blush roses, and sampaguita in warm kraft linen.',
     careTip: 'Mist sampaguita florets lightly each morning to preserve their evening fragrance.',
     image: '',
-    imageKey: 'heroAtelier',
+    imageKey: 'courtyardMedley',
     inStock: true,
     defaultConfig: {
       title: 'Dagupan Atelier Custom Hand-Tie',
@@ -351,7 +351,7 @@ const SEED_CATALOG: StoredCatalogBouquet[] = [
       'Twelve long-stemmed highland crimson roses paired with silvery eucalyptus sprigs and tied with a double-faced burgundy grosgrain ribbon.',
     careTip: 'Remove any leaves below the waterline and add the included floral nutrient packet.',
     image: '',
-    imageKey: 'sampaguitaRose',
+    imageKey: 'benguetCrimson',
     inStock: true,
     defaultConfig: {
       title: 'Twelve Velvet Benguet Roses',
@@ -378,7 +378,7 @@ const SEED_CATALOG: StoredCatalogBouquet[] = [
       'Created for Dagupan’s Bangus Festival, graduations, and homecoming welcomes—abundant sampaguita clusters accented with solar sunflowers and brushed brass ribbon.',
     careTip: 'Place in a wide-mouth ceramic vase with cool filtered water.',
     image: '',
-    imageKey: 'solarSunflower',
+    imageKey: 'fiestaSampaguita',
     inStock: true,
     defaultConfig: {
       title: 'Bangus Festival Sampaguita & Gold',
@@ -405,7 +405,7 @@ const SEED_CATALOG: StoredCatalogBouquet[] = [
       'Long-lasting preserved mauve roses, dried silver dollar eucalyptus, and ivory lilies styled in sage cotton paper for desks and studio consoles.',
     careTip: 'No water needed for preserved stems; dust gently with cool air.',
     image: '',
-    imageKey: 'heroAtelier',
+    imageKey: 'cordilleraMauve',
     inStock: true,
     defaultConfig: {
       title: 'Cordillera Mauve & Eucalyptus Study',
@@ -1671,7 +1671,14 @@ async function startServer() {
       imageKey === 'sampaguitaRose' ||
       imageKey === 'solarSunflower' ||
       imageKey === 'stargazerOrchid' ||
-      imageKey === 'heroAtelier'
+      imageKey === 'heroAtelier' ||
+      imageKey === 'shopLucao' ||
+      imageKey === 'shopTapuac' ||
+      imageKey === 'tondaliganSunburst' ||
+      imageKey === 'courtyardMedley' ||
+      imageKey === 'benguetCrimson' ||
+      imageKey === 'fiestaSampaguita' ||
+      imageKey === 'cordilleraMauve'
         ? imageKey
         : 'sampaguitaRose';
 
@@ -1762,7 +1769,14 @@ async function startServer() {
       imageKey === 'sampaguitaRose' ||
       imageKey === 'solarSunflower' ||
       imageKey === 'stargazerOrchid' ||
-      imageKey === 'heroAtelier'
+      imageKey === 'heroAtelier' ||
+      imageKey === 'shopLucao' ||
+      imageKey === 'shopTapuac' ||
+      imageKey === 'tondaliganSunburst' ||
+      imageKey === 'courtyardMedley' ||
+      imageKey === 'benguetCrimson' ||
+      imageKey === 'fiestaSampaguita' ||
+      imageKey === 'cordilleraMauve'
     ) {
       target.imageKey = imageKey;
     }

@@ -11,9 +11,16 @@ import {
 } from '../types/floraview';
 
 import heroAtelierImg from '../assets/images/hero_dagupan_atelier_1793928797063.jpg';
-import sampaguitaRoseImg from '../assets/images/bouquet_sampaguita_vertical_1794931386313.jpg';
-import solarSunflowerImg from '../assets/images/bouquet_solar_sunflower_1793928797860.jpg';
-import stargazerOrchidImg from '../assets/images/bouquet_stargazer_orchid_1793928798055.jpg';
+import sampaguitaRoseImg from '../assets/images/blush_sampaguita_bouquet_1794941246352.jpg';
+import solarSunflowerImg from '../assets/images/golden_sunflower_bouquet_1794941248126.jpg';
+import stargazerOrchidImg from '../assets/images/stargazer_lily_bouquet_1794941247707.jpg';
+import lucaoCrimsonImg from '../assets/images/lucao_crimson_bouquet_1794941248104.jpg';
+import tapuacIvoryImg from '../assets/images/tapuac_ivory_bouquet_1794941248537.jpg';
+import tondaliganSunburstImg from '../assets/images/tondaligan_sunburst_bouquet_1794941619790.jpg';
+import courtyardMedleyImg from '../assets/images/courtyard_medley_bouquet_1794941619633.jpg';
+import benguetCrimsonImg from '../assets/images/benguet_crimson_roses_1794941619923.jpg';
+import fiestaSampaguitaImg from '../assets/images/fiesta_sampaguita_gold_1794941621259.jpg';
+import cordilleraMauveImg from '../assets/images/cordillera_mauve_study_1794941621244.jpg';
 import arCapizRoomImg from '../assets/images/ar_capiz_room_backdrop_1793928798568.jpg';
 
 export const IMAGES = {
@@ -21,6 +28,13 @@ export const IMAGES = {
   sampaguitaRose: sampaguitaRoseImg,
   solarSunflower: solarSunflowerImg,
   stargazerOrchid: stargazerOrchidImg,
+  shopLucao: lucaoCrimsonImg,
+  shopTapuac: tapuacIvoryImg,
+  tondaliganSunburst: tondaliganSunburstImg,
+  courtyardMedley: courtyardMedleyImg,
+  benguetCrimson: benguetCrimsonImg,
+  fiestaSampaguita: fiestaSampaguitaImg,
+  cordilleraMauve: cordilleraMauveImg,
   arCapizRoom: arCapizRoomImg,
 };
 
@@ -102,8 +116,8 @@ export const DAGUPAN_SHOPS: FloristShop[] = [
     counterDesk: 'Lucao Counter Desk · Window 1',
     specialty: 'Sculpted Garden Roses & Benguet Stems',
     distanceKm: 1.6,
-    image: IMAGES.heroAtelier,
-    imageKey: 'heroAtelier',
+    image: IMAGES.shopLucao,
+    imageKey: 'shopLucao',
     isOpen: true,
   },
   {
@@ -153,8 +167,8 @@ export const DAGUPAN_SHOPS: FloristShop[] = [
     counterDesk: 'Tapuac Orchid Conservatory Desk',
     specialty: 'Phalaenopsis Orchids & Stargazer Lilies',
     distanceKm: 1.4,
-    image: IMAGES.stargazerOrchid,
-    imageKey: 'stargazerOrchid',
+    image: IMAGES.shopTapuac,
+    imageKey: 'shopTapuac',
     isOpen: true,
   },
 ];
@@ -381,7 +395,8 @@ export const CATALOG_BOUQUETS: CatalogBouquet[] = [
     description:
       'Inspired by golden hour along Bonuan Tondaligan Beach—radiant Pangasinan sunflowers paired with coral garden roses and eucalyptus in unbleached kraft linen.',
     careTip: 'Sunflowers drink generously; top up cool water daily for a full 10-day bloom.',
-    image: IMAGES.solarSunflower,
+    image: IMAGES.tondaliganSunburst,
+    imageKey: 'tondaliganSunburst',
     defaultConfig: {
       title: 'Tondaligan Golden Sunburst',
       stems: { rose: 3, sunflower: 5, stargazer: 0, orchid: 0, sampaguita: 1, eucalyptus: 3 },
@@ -431,7 +446,8 @@ export const CATALOG_BOUQUETS: CatalogBouquet[] = [
     description:
       'A balanced celebration of Dagupan City’s coastal warmth and highland artistry—combining sunflowers, stargazer lilies, blush roses, and sampaguita in warm kraft linen.',
     careTip: 'Mist sampaguita florets lightly each morning to preserve their evening fragrance.',
-    image: IMAGES.heroAtelier,
+    image: IMAGES.courtyardMedley,
+    imageKey: 'courtyardMedley',
     defaultConfig: DEFAULT_BOUQUET_CONFIG,
   },
   {
@@ -475,7 +491,8 @@ export const CATALOG_BOUQUETS: CatalogBouquet[] = [
     description:
       'Twelve long-stemmed highland crimson roses paired with silvery eucalyptus sprigs and tied with a double-faced burgundy grosgrain ribbon.',
     careTip: 'Remove any leaves below the waterline and add the included floral nutrient packet.',
-    image: IMAGES.sampaguitaRose,
+    image: IMAGES.benguetCrimson,
+    imageKey: 'benguetCrimson',
     defaultConfig: {
       title: 'Twelve Velvet Benguet Roses',
       stems: { rose: 11, sunflower: 0, stargazer: 0, orchid: 0, sampaguita: 0, eucalyptus: 3 },
@@ -500,7 +517,8 @@ export const CATALOG_BOUQUETS: CatalogBouquet[] = [
     description:
       'Created for Dagupan’s Bangus Festival, graduations, and homecoming welcomes—abundant sampaguita clusters accented with solar sunflowers and brushed brass ribbon.',
     careTip: 'Place in a wide-mouth ceramic vase with cool filtered water.',
-    image: IMAGES.solarSunflower,
+    image: IMAGES.fiestaSampaguita,
+    imageKey: 'fiestaSampaguita',
     defaultConfig: {
       title: 'Bangus Festival Sampaguita & Gold',
       stems: { rose: 0, sunflower: 4, stargazer: 0, orchid: 0, sampaguita: 7, eucalyptus: 2 },
@@ -525,7 +543,8 @@ export const CATALOG_BOUQUETS: CatalogBouquet[] = [
     description:
       'Long-lasting preserved mauve roses, dried silver dollar eucalyptus, and ivory lilies styled in sage cotton paper for desks and studio consoles.',
     careTip: 'No water needed for preserved stems; dust gently with cool air.',
-    image: IMAGES.heroAtelier,
+    image: IMAGES.cordilleraMauve,
+    imageKey: 'cordilleraMauve',
     defaultConfig: {
       title: 'Cordillera Mauve & Eucalyptus Study',
       stems: { rose: 5, sunflower: 0, stargazer: 1, orchid: 0, sampaguita: 0, eucalyptus: 5 },
