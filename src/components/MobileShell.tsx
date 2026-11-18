@@ -103,19 +103,21 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               </button>
             </nav>
 
-            {/* Zone 3: Primary Action (Cart CTA) */}
+            {/* Zone 3: Primary Action (Cart CTA - hidden for Admin) */}
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => onNavigate('cart')}
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-[#1B4332] text-white text-xs lg:text-sm font-medium flex items-center gap-2 hover:bg-[#143326] active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <ShoppingBag className="w-4 h-4 shrink-0" />
-                <span>Cart</span>
-                <span className="font-mono tabular-nums text-xs opacity-90">
-                  ({cartCount})
-                </span>
-              </button>
+              {!isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate('cart')}
+                  className="min-h-[44px] px-4 py-2 rounded-xl bg-[#1B4332] text-white text-xs lg:text-sm font-medium flex items-center gap-2 hover:bg-[#143326] active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4 shrink-0" />
+                  <span>Reservation</span>
+                  <span className="font-mono tabular-nums text-xs opacity-90">
+                    ({cartCount})
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </header>

@@ -264,6 +264,7 @@ export interface AdminOverviewPayload {
   totalCustomersCount: number;
   totalSavedBouquetsCount: number;
   orders: AdminOrderRecord[];
+  historicalOrders?: AdminOrderRecord[];
   customers: AdminCustomerSummary[];
   staff: DagupanStaffMember[];
   shops?: FloristShop[];

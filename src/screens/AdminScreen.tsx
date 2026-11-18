@@ -1,13 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Calendar,
   CheckCircle2,
   Clock,
+  Download,
   Edit3,
+  ExternalLink,
+  History,
   LogOut,
   MapPin,
   Package,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -17,6 +22,7 @@ import {
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 import {
   CATALOG_BOUQUETS,
@@ -107,13 +113,14 @@ interface AdminScreenProps {
   onSignOut: () => Promise<void>;
 }
 
-type AdminSection = 'tickets' | 'staff' | 'catalog' | 'customers';
+type AdminSection = 'tickets' | 'history' | 'staff' | 'catalog' | 'customers';
 type TicketStatusFilter =
   | 'all'
   | 'preparing'
   | 'ready_for_pickup'
   | 'picked_up'
   | 'cancelled';
+type HistoryPeriodFilter = 'all' | 'past' | 'present';
 
 const STAFF_STATUS_OPTIONS: Array<{
   id: StaffShiftStatus;
@@ -208,6 +215,15 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
   // Customer search
   const [customerQuery, setCustomerQuery] = useState('');
 
+  // History tracker filters (January 2026 - Present)
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriodFilter>('all');
+  const [historyMonth, setHistoryMonth] = useState<string>('all');
+  const [historyBranch, setHistoryBranch] = useState<string>('all');
+  const [historyStatus, setHistoryStatus] = useState<TicketStatusFilter>('all');
+  const [historyQuery, setHistoryQuery] = useState<string>('');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printBlockedHint, setPrintBlockedHint] = useState(false);
+
   const isAdmin = user.role === 'admin';
 
   const activeShops = useMemo(() => {
@@ -281,6 +297,315 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
         c.barangay.toLowerCase().includes(q),
     );
   }, [overview?.customers, customerQuery]);
+
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }, []);
+
+  const currentMonthLabel = useMemo(() => {
+    const [yStr, mStr] = currentMonthKey.split('-');
+    const d = new Date(Number(yStr), Number(mStr) - 1, 1);
+    return d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+  }, [currentMonthKey]);
+
+  const combinedHistoryOrders = useMemo(() => {
+    const current = overview?.orders || [];
+    const historical = overview?.historicalOrders || [];
+    const merged = [...current, ...historical];
+    const seen = new Set<string>();
+    const deduped = merged.filter((ord) => {
+      const key = `${ord.id}-${ord.ticketCode || ''}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    deduped.sort((a, b) => {
+      const da = Date.parse(a.pickupDate || a.createdAt || '') || 0;
+      const db = Date.parse(b.pickupDate || b.createdAt || '') || 0;
+      return db - da;
+    });
+    return deduped;
+  }, [overview?.orders, overview?.historicalOrders]);
+
+  const historyMonthOptions = useMemo(() => {
+    const months = new Set<string>();
+    const [curYear, curMon] = currentMonthKey.split('-').map(Number);
+    if (curYear >= 2026) {
+      for (let y = 2026; y <= curYear; y += 1) {
+        const endM = y === curYear ? curMon : 12;
+        for (let m = 1; m <= endM; m += 1) {
+          months.add(`${y}-${String(m).padStart(2, '0')}`);
+        }
+      }
+    }
+    for (const ord of combinedHistoryOrders) {
+      const dateStr = ord.pickupDate || ord.createdAt || '';
+      const ym = dateStr.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym) && ym >= '2026-01') {
+        months.add(ym);
+      }
+    }
+    return Array.from(months)
+      .sort((a, b) => b.localeCompare(a))
+      .map((ym) => {
+        const [yStr, mStr] = ym.split('-');
+        const label = new Date(Number(yStr), Number(mStr) - 1, 1).toLocaleString(
+          'en-US',
+          { month: 'long', year: 'numeric' },
+        );
+        return {
+          value: ym,
+          label: ym >= currentMonthKey ? `${label} (Present)` : `${label} (Past)`,
+        };
+      });
+  }, [combinedHistoryOrders, currentMonthKey]);
+
+  const filteredHistoryOrders = useMemo(() => {
+    const q = historyQuery.trim().toLowerCase();
+    return combinedHistoryOrders.filter((ord) => {
+      const dateStr = ord.pickupDate || ord.createdAt || '';
+      const ym = dateStr.slice(0, 7) || currentMonthKey;
+      const isPresent = ym >= currentMonthKey;
+      if (historyPeriod === 'past' && isPresent) return false;
+      if (historyPeriod === 'present' && !isPresent) return false;
+      if (historyMonth !== 'all' && ym !== historyMonth) return false;
+      if (
+        historyBranch !== 'all' &&
+        (ord.pickupShopId || 'shop-lucao') !== historyBranch
+      ) {
+        return false;
+      }
+      const normalizedStatus =
+        ord.status === 'delivered'
+          ? 'picked_up'
+          : ord.status === 'out_for_delivery'
+            ? 'ready_for_pickup'
+            : ord.status;
+      if (historyStatus !== 'all' && normalizedStatus !== historyStatus) {
+        return false;
+      }
+      if (q) {
+        const hay = [
+          ord.ticketCode || '',
+          ord.id,
+          ord.recipientName,
+          ord.customerName,
+          ord.summaryText,
+          ord.pickupShopName || '',
+          ord.barangay,
+          dateStr,
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [
+    combinedHistoryOrders,
+    historyPeriod,
+    historyMonth,
+    historyBranch,
+    historyStatus,
+    historyQuery,
+    currentMonthKey,
+  ]);
+
+  const historyMetrics = useMemo(() => {
+    let pastCount = 0;
+    let presentCount = 0;
+    let totalValue = 0;
+    for (const ord of filteredHistoryOrders) {
+      const ym = (ord.pickupDate || ord.createdAt || '').slice(0, 7) || currentMonthKey;
+      if (ym < currentMonthKey) pastCount += 1;
+      else presentCount += 1;
+      if (ord.status !== 'cancelled') {
+        totalValue += Number(ord.totalAmount || 0);
+      }
+    }
+    return { pastCount, presentCount, totalValue };
+  }, [filteredHistoryOrders, currentMonthKey]);
+
+  const printableReportUrls = useMemo(() => {
+    const escapeHtml = (val: unknown) =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const rowsHtml = filteredHistoryOrders
+      .map((ord) => {
+        const dateStr = ord.pickupDate || ord.createdAt.slice(0, 10);
+        const ym = dateStr.slice(0, 7) || currentMonthKey;
+        const isPresent = ym >= currentMonthKey;
+        const statusText =
+          ord.status === 'cancelled'
+            ? 'Cancelled'
+            : ord.status === 'picked_up' || ord.status === 'delivered'
+              ? 'Picked Up'
+              : ord.status === 'ready_for_pickup' || ord.status === 'out_for_delivery'
+                ? 'Ready for Pickup'
+                : 'Crafting Bouquet';
+
+        return `<tr>
+          <td><strong>${escapeHtml(dateStr)}</strong><br><span class="muted">${isPresent ? 'Present' : 'Past'}</span></td>
+          <td class="mono"><strong>#${escapeHtml(ord.ticketCode || ord.id)}</strong><br><span class="muted">${escapeHtml(ord.id)}</span></td>
+          <td><strong>${escapeHtml(ord.recipientName)}</strong><br><span class="muted">Brgy. ${escapeHtml(ord.barangay)} · ${escapeHtml(ord.paymentMethod)}</span></td>
+          <td>${escapeHtml(ord.summaryText)}<br><span class="muted">${escapeHtml(ord.pickupSlot || ord.deliverySlot)}</span></td>
+          <td>${escapeHtml(ord.pickupShopName || 'Lucao Garden Atelier')}<br><span class="muted">${escapeHtml(ord.assignedStaffName ? `Florist: ${ord.assignedStaffName}` : 'Branch Counter')}</span></td>
+          <td>${escapeHtml(statusText)}</td>
+          <td class="right mono"><strong>₱${Number(ord.totalAmount || 0).toLocaleString()}</strong></td>
+        </tr>`;
+      })
+      .join('\n');
+
+    const htmlDoc = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FloraView Dagupan — Order History Ledger (Jan 2026–Present)</title>
+  <style>
+    @page { size: landscape; margin: 12mm; }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #16211B; margin: 24px; background: #fff; }
+    .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1B4332; padding-bottom: 12px; margin-bottom: 16px; }
+    .brand { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #536159; }
+    h1 { font-family: Georgia, serif; font-size: 24px; margin: 4px 0; }
+    .meta { font-size: 12px; color: #536159; }
+    .actions { margin-bottom: 14px; }
+    .btn { padding: 8px 14px; background: #1B4332; color: #fff; border: 0; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; }
+    .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .card { border: 1px solid #D5D2CA; border-radius: 8px; padding: 10px 12px; }
+    .card-label { font-size: 11px; color: #536159; }
+    .card-val { font-size: 18px; font-weight: 700; margin-top: 2px; font-family: ui-monospace, monospace; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border-bottom: 1px solid #E4E2DC; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #FAF9F7; color: #536159; font-weight: 700; border-top: 1px solid #E4E2DC; }
+    tr { break-inside: avoid; }
+    .right { text-align: right; }
+    .mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+    .muted { color: #536159; font-size: 11px; }
+    @media print { .actions { display: none; } body { margin: 0; } }
+  </style>
+</head>
+<body>
+  <div class="actions">
+    <button class="btn" onclick="window.print()">Print / Save as PDF</button>
+  </div>
+  <div class="header">
+    <div>
+      <div class="brand">FloraView Dagupan · Counter Pickup Atelier</div>
+      <h1>Order History Ledger (Jan 2026 – ${escapeHtml(currentMonthLabel)})</h1>
+      <div class="meta">Period: ${escapeHtml(historyPeriod.toUpperCase())} · Month: ${escapeHtml(historyMonth === 'all' ? 'All Months' : historyMonth)} · Printed: ${escapeHtml(new Date().toLocaleString())}</div>
+    </div>
+    <div class="meta right">Admin: ${escapeHtml(user.displayName)}</div>
+  </div>
+  <div class="summary">
+    <div class="card"><div class="card-label">Matching Orders</div><div class="card-val">${filteredHistoryOrders.length}</div></div>
+    <div class="card"><div class="card-label">Past (Jan–Oct 2026)</div><div class="card-val">${historyMetrics.pastCount}</div></div>
+    <div class="card"><div class="card-label">Present (${escapeHtml(currentMonthLabel)})</div><div class="card-val">${historyMetrics.presentCount}</div></div>
+    <div class="card"><div class="card-label">Ledger Total</div><div class="card-val">₱${historyMetrics.totalValue.toLocaleString()}</div></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date &amp; Era</th>
+        <th>Ticket / Ref</th>
+        <th>Customer</th>
+        <th>Bouquet Order</th>
+        <th>Branch &amp; Florist</th>
+        <th>Status</th>
+        <th class="right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rowsHtml || '<tr><td colspan="7">No orders match the current filter.</td></tr>'}
+    </tbody>
+  </table>
+  <script>
+    window.addEventListener('load', function () {
+      if (window.self === window.top) {
+        setTimeout(function () {
+          try { window.print(); } catch (e) {}
+        }, 200);
+      }
+    });
+  </script>
+</body>
+</html>`;
+
+    const csvEscape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const csvLines = [
+      ['Date', 'Era', 'TicketCode', 'OrderID', 'Customer', 'Barangay', 'Summary', 'Branch', 'Florist', 'PaymentMethod', 'Status', 'TotalPHP'].join(','),
+      ...filteredHistoryOrders.map((ord) => {
+        const dateStr = ord.pickupDate || ord.createdAt.slice(0, 10);
+        const ym = dateStr.slice(0, 7) || currentMonthKey;
+        const era = ym >= currentMonthKey ? 'Present' : 'Past';
+        return [
+          csvEscape(dateStr),
+          csvEscape(era),
+          csvEscape(ord.ticketCode || ord.id),
+          csvEscape(ord.id),
+          csvEscape(ord.recipientName),
+          csvEscape(ord.barangay),
+          csvEscape(ord.summaryText),
+          csvEscape(ord.pickupShopName || 'Lucao Garden Atelier'),
+          csvEscape(ord.assignedStaffName || 'Unassigned'),
+          csvEscape(ord.paymentMethod),
+          csvEscape(ord.status),
+          csvEscape(Number(ord.totalAmount || 0)),
+        ].join(',');
+      }),
+    ];
+
+    const htmlBlob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
+    const csvBlob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    return {
+      htmlUrl: URL.createObjectURL(htmlBlob),
+      csvUrl: URL.createObjectURL(csvBlob),
+    };
+  }, [
+    filteredHistoryOrders,
+    currentMonthKey,
+    currentMonthLabel,
+    historyPeriod,
+    historyMonth,
+    historyMetrics,
+    user.displayName,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      URL.revokeObjectURL(printableReportUrls.htmlUrl);
+      URL.revokeObjectURL(printableReportUrls.csvUrl);
+    };
+  }, [printableReportUrls]);
+
+  const handlePrintHistoryPage = () => {
+    setPrintBlockedHint(false);
+    let didPrintStart = false;
+    const onBeforePrint = () => {
+      didPrintStart = true;
+    };
+    window.addEventListener('beforeprint', onBeforePrint);
+
+    try {
+      window.print();
+    } catch {
+      // Blocked inside sandboxed iframe
+    }
+
+    window.setTimeout(() => {
+      window.removeEventListener('beforeprint', onBeforePrint);
+      if (!didPrintStart) {
+        setPrintBlockedHint(true);
+        setShowPrintModal(true);
+      }
+    }, 300);
+  };
 
   const handleStatusChange = async (
     orderId: string,
@@ -582,7 +907,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-12 space-y-6 sm:space-y-8">
       {/* Top Atelier Operations Header */}
-      <section className="rounded-2xl bg-white border border-[#E4E2DC] p-4 sm:p-7 flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5">
+      <section className="rounded-2xl bg-white border border-[#E4E2DC] p-4 sm:p-7 flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-5 print:hidden">
         <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[#16211B] text-[#E8D5B5] flex items-center justify-center shrink-0">
             <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -661,7 +986,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
       {/* 4-Column Typographic KPI Ledger */}
       <section
         aria-label="Dagupan Atelier Key Metrics"
-        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 print:hidden"
       >
         <div className="rounded-2xl bg-white border border-[#E4E2DC] p-4 sm:p-5">
           <p className="text-xs font-medium text-[#536159]">Dagupan Revenue</p>
@@ -708,7 +1033,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
       </section>
 
       {/* Editorial Underline Navigation Tabs */}
-      <div className="border-b border-[#E4E2DC] flex items-center gap-4 sm:gap-6 overflow-x-auto">
+      <div className="border-b border-[#E4E2DC] flex items-center gap-4 sm:gap-6 overflow-x-auto print:hidden">
         <button
           type="button"
           onClick={() => setActiveTab('tickets')}
@@ -720,6 +1045,19 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
         >
           <Ticket className="w-4 h-4" />
           <span>Live Ticket Tracker ({overview?.orders.length ?? 0})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('history')}
+          className={`min-h-[44px] pb-2 border-b-2 text-xs sm:text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+            activeTab === 'history'
+              ? 'border-[#1B4332] text-[#16211B]'
+              : 'border-transparent text-[#536159] hover:text-[#16211B]'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>History Tracker Jan 2026–Present ({combinedHistoryOrders.length})</span>
         </button>
 
         <button
@@ -1962,6 +2300,425 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 5: ORDER HISTORY TRACKER (JANUARY 2026 - PRESENT) & PRINT LEDGER */}
+      {activeTab === 'history' && (
+        <section
+          aria-label="Order History Tracker January 2026 to Present"
+          className="space-y-5"
+        >
+          {/* Printable Report Banner (Visible when printing) */}
+          <div className="hidden print:block pb-4 border-b border-[#D5D2CA]">
+            <p className="text-xs uppercase tracking-wider text-[#536159]">
+              FloraView Dagupan · Official Order History Ledger
+            </p>
+            <h2 className="font-serif text-2xl font-bold text-[#16211B]">
+              Past (Jan 2026) &amp; Present ({currentMonthLabel}) Counter Pickup Orders
+            </h2>
+            <p className="text-xs font-mono text-[#536159] mt-1">
+              Printed {new Date().toLocaleString()} · {filteredHistoryOrders.length} orders · Total ₱{historyMetrics.totalValue.toLocaleString()}
+            </p>
+          </div>
+
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-2xl font-bold text-[#16211B]">
+                Order History Tracker (Jan 2026 – Present)
+              </h2>
+              <p className="text-xs text-[#536159]">
+                Inspect past Dagupan orders starting January 2026 alongside present ({currentMonthLabel}) orders, filter by month or branch, and print this ledger.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setPrintBlockedHint(false);
+                  setShowPrintModal(true);
+                }}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-[#F1F0EC] text-[#16211B] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#E4E2DC] cursor-pointer whitespace-nowrap"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Print Preview &amp; Export</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintHistoryPage}
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-[#1B4332] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#143326] cursor-pointer whitespace-nowrap"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Page</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Period Tabs + Filters */}
+          <div className="rounded-2xl bg-white border border-[#E4E2DC] p-4 sm:p-5 space-y-4 print:hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  {
+                    id: 'all',
+                    label: `All Orders (Jan 2026–Present)`,
+                  },
+                  {
+                    id: 'past',
+                    label: 'Past Orders (Jan–Oct 2026)',
+                  },
+                  {
+                    id: 'present',
+                    label: `Present Orders (${currentMonthLabel})`,
+                  },
+                ] as const
+              ).map((period) => (
+                <button
+                  key={period.id}
+                  type="button"
+                  onClick={() => {
+                    setHistoryPeriod(period.id);
+                    setHistoryMonth('all');
+                  }}
+                  className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    historyPeriod === period.id
+                      ? 'bg-[#1B4332] text-white'
+                      : 'bg-[#FAF9F7] border border-[#E4E2DC] text-[#536159] hover:text-[#16211B]'
+                  }`}
+                >
+                  {period.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-[#536159] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  aria-label="Search order history"
+                  value={historyQuery}
+                  onChange={(e) => setHistoryQuery(e.target.value)}
+                  placeholder="Search ticket, month, customer..."
+                  className="w-full min-h-[42px] pl-8 pr-3 py-2 rounded-xl bg-[#FAF9F7] border border-[#D5D2CA] text-xs text-[#16211B] focus:outline-none focus:border-[#1B4332]"
+                />
+              </div>
+
+              <div className="relative flex items-center">
+                <Calendar className="w-3.5 h-3.5 text-[#536159] absolute left-3 pointer-events-none" />
+                <select
+                  aria-label="Filter history by month"
+                  value={historyMonth}
+                  onChange={(e) => setHistoryMonth(e.target.value)}
+                  className="w-full min-h-[42px] pl-8 pr-3 py-2 rounded-xl bg-[#FAF9F7] border border-[#D5D2CA] text-xs font-semibold text-[#16211B] focus:outline-none focus:border-[#1B4332]"
+                >
+                  <option value="all">All Months (Jan 2026–Present)</option>
+                  {historyMonthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <select
+                aria-label="Filter history by Dagupan branch"
+                value={historyBranch}
+                onChange={(e) => setHistoryBranch(e.target.value)}
+                className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-[#FAF9F7] border border-[#D5D2CA] text-xs font-semibold text-[#16211B] focus:outline-none focus:border-[#1B4332]"
+              >
+                <option value="all">All Dagupan Branches</option>
+                {activeShops.map((shop) => (
+                  <option key={shop.id} value={shop.id}>
+                    {shop.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Filter history by order status"
+                value={historyStatus}
+                onChange={(e) =>
+                  setHistoryStatus(e.target.value as TicketStatusFilter)
+                }
+                className="w-full min-h-[42px] px-3 py-2 rounded-xl bg-[#FAF9F7] border border-[#D5D2CA] text-xs font-semibold text-[#16211B] focus:outline-none focus:border-[#1B4332]"
+              >
+                <option value="all">All Statuses</option>
+                <option value="preparing">Crafting Bouquet</option>
+                <option value="ready_for_pickup">Ready for Pickup</option>
+                <option value="picked_up">Picked Up</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Filtered Summary Ledger */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl bg-white border border-[#E4E2DC] p-3.5">
+              <p className="text-[11px] font-medium text-[#536159]">Matching Orders</p>
+              <p className="font-mono text-xl font-bold text-[#16211B] tabular-nums mt-0.5">
+                {filteredHistoryOrders.length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white border border-[#E4E2DC] p-3.5">
+              <p className="text-[11px] font-medium text-[#536159]">
+                Past (Jan–Oct 2026)
+              </p>
+              <p className="font-mono text-xl font-bold text-[#536159] tabular-nums mt-0.5">
+                {historyMetrics.pastCount}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white border border-[#E4E2DC] p-3.5">
+              <p className="text-[11px] font-medium text-[#536159]">
+                Present ({currentMonthLabel})
+              </p>
+              <p className="font-mono text-xl font-bold text-[#1B4332] tabular-nums mt-0.5">
+                {historyMetrics.presentCount}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white border border-[#E4E2DC] p-3.5">
+              <p className="text-[11px] font-medium text-[#536159]">Ledger Total</p>
+              <p className="font-mono text-xl font-bold text-[#16211B] tabular-nums mt-0.5">
+                ₱{historyMetrics.totalValue.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Historical & Present Orders Table */}
+          {filteredHistoryOrders.length === 0 ? (
+            <div className="rounded-2xl bg-white border border-[#E4E2DC] p-8 text-center text-sm text-[#536159]">
+              No past or present orders match these filters.
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-white border border-[#E4E2DC] overflow-hidden print:border-[#D5D2CA] print:rounded-none">
+              <div className="overflow-x-auto print:overflow-visible">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E4E2DC] bg-[#FAF9F7] text-[#536159]">
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Date &amp; Era</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Ticket / Ref</th>
+                      <th className="py-3 px-4 font-semibold">Customer</th>
+                      <th className="py-3 px-4 font-semibold">Bouquet Order</th>
+                      <th className="py-3 px-4 font-semibold">Dagupan Branch &amp; Florist</th>
+                      <th className="py-3 px-4 font-semibold whitespace-nowrap">Status</th>
+                      <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F1F0EC]">
+                    {filteredHistoryOrders.map((ord) => {
+                      const dateStr = ord.pickupDate || ord.createdAt.slice(0, 10);
+                      const ym = dateStr.slice(0, 7) || currentMonthKey;
+                      const isPresent = ym >= currentMonthKey;
+                      const [yStr, mStr] = ym.split('-');
+                      const monthLabel =
+                        yStr && mStr
+                          ? new Date(Number(yStr), Number(mStr) - 1, 1).toLocaleString(
+                              'en-US',
+                              { month: 'short', year: 'numeric' },
+                            )
+                          : dateStr;
+                      const isCancelled = ord.status === 'cancelled';
+                      const isPickedUp =
+                        ord.status === 'picked_up' || ord.status === 'delivered';
+                      const isReady =
+                        ord.status === 'ready_for_pickup' ||
+                        ord.status === 'out_for_delivery';
+
+                      const statusLabel = isCancelled
+                        ? 'Cancelled'
+                        : isPickedUp
+                          ? 'Picked Up'
+                          : isReady
+                            ? 'Ready for Pickup'
+                            : 'Crafting Bouquet';
+
+                      const statusColor = isCancelled
+                        ? 'text-[#8E1F3A]'
+                        : isReady
+                          ? 'text-[#1B4332]'
+                          : isPickedUp
+                            ? 'text-[#536159]'
+                            : 'text-[#B8294B]';
+
+                      return (
+                        <tr
+                          key={`hist-${ord.ownerUid}-${ord.id}`}
+                          className="hover:bg-[#FAF9F7]/70"
+                        >
+                          <td className="py-3.5 px-4 whitespace-nowrap align-top">
+                            <p className="font-mono font-semibold text-[#16211B]">
+                              {dateStr}
+                            </p>
+                            <p
+                              className={`text-[11px] font-semibold mt-0.5 ${
+                                isPresent ? 'text-[#1B4332]' : 'text-[#536159]'
+                              }`}
+                            >
+                              {isPresent ? `Present (${monthLabel})` : `Past (${monthLabel})`}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 whitespace-nowrap align-top">
+                            <p className="font-mono font-bold text-[#16211B]">
+                              #{ord.ticketCode || ord.id}
+                            </p>
+                            <p className="font-mono text-[11px] text-[#536159]">
+                              {ord.id}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top">
+                            <p className="font-semibold text-[#16211B]">
+                              {ord.recipientName}
+                            </p>
+                            <p className="text-[11px] text-[#536159]">
+                              Brgy. {ord.barangay} · {ord.paymentMethod}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top max-w-[260px]">
+                            <p className="font-medium text-[#16211B]">
+                              {ord.summaryText}
+                            </p>
+                            <p className="text-[11px] text-[#536159] mt-0.5">
+                              {ord.pickupSlot || ord.deliverySlot}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 align-top">
+                            <p className="font-medium text-[#16211B]">
+                              {ord.pickupShopName || 'Lucao Garden Atelier'}
+                            </p>
+                            <p className="text-[11px] text-[#536159]">
+                              {ord.assignedStaffName
+                                ? `Florist: ${ord.assignedStaffName}`
+                                : 'Branch Counter'}
+                            </p>
+                          </td>
+
+                          <td className="py-3.5 px-4 whitespace-nowrap align-top">
+                            <span className={`font-semibold ${statusColor}`}>
+                              {statusLabel}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap align-top font-mono font-bold text-[#16211B] tabular-nums">
+                            ₱{Number(ord.totalAmount || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Print Preview & Export Modal (Ensures printing works even inside embedded preview frames) */}
+          {showPrintModal && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Printable Order History Ledger"
+              className="fixed inset-0 z-50 bg-[#16211B]/50 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
+            >
+              <div className="bg-white border border-[#E4E2DC] rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col overflow-hidden shadow-2xl">
+                <div className="p-4 sm:p-5 border-b border-[#E4E2DC] flex items-center justify-between gap-3 bg-[#FAF9F7]">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#1B4332]">
+                      Printable Order History Sheet
+                    </p>
+                    <h3 className="font-serif text-xl font-bold text-[#16211B]">
+                      Jan 2026 – {currentMonthLabel} Order Ledger ({filteredHistoryOrders.length} orders)
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close print preview"
+                    onClick={() => setShowPrintModal(false)}
+                    className="min-w-[40px] min-h-[40px] rounded-xl border border-[#D5D2CA] flex items-center justify-center text-[#16211B] hover:bg-[#F1F0EC] cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {printBlockedHint && (
+                  <div className="mx-4 sm:mx-5 mt-4 p-3 rounded-xl bg-[#FDF2F4] border border-[#F3C6D0] text-xs text-[#8E1F3A]">
+                    Your embedded preview window blocked direct <span className="font-mono font-semibold">window.print()</span>. Use <strong>Open Printable Tab &amp; Print</strong> or <strong>Download Printable (.html)</strong> below to print or save as PDF.
+                  </div>
+                )}
+
+                <div className="p-4 sm:p-5 overflow-auto flex-1 space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                    <div className="p-3 rounded-xl bg-[#FAF9F7] border border-[#E4E2DC]">
+                      <p className="text-[#536159]">Orders</p>
+                      <p className="font-mono font-bold text-base text-[#16211B]">{filteredHistoryOrders.length}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#FAF9F7] border border-[#E4E2DC]">
+                      <p className="text-[#536159]">Past (Jan–Oct 2026)</p>
+                      <p className="font-mono font-bold text-base text-[#536159]">{historyMetrics.pastCount}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#FAF9F7] border border-[#E4E2DC]">
+                      <p className="text-[#536159]">Present ({currentMonthLabel})</p>
+                      <p className="font-mono font-bold text-base text-[#1B4332]">{historyMetrics.presentCount}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[#FAF9F7] border border-[#E4E2DC]">
+                      <p className="text-[#536159]">Total</p>
+                      <p className="font-mono font-bold text-base text-[#16211B]">₱{historyMetrics.totalValue.toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="border border-[#E4E2DC] rounded-xl overflow-hidden">
+                    <iframe
+                      title="Printable Order History Ledger Preview"
+                      src={printableReportUrls.htmlUrl}
+                      className="w-full h-[360px] bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 border-t border-[#E4E2DC] bg-[#FAF9F7] flex flex-wrap items-center justify-end gap-2.5">
+                  <a
+                    href={printableReportUrls.csvUrl}
+                    download={`FloraView-Order-History-2026.csv`}
+                    className="min-h-[42px] px-4 py-2 rounded-xl border border-[#D5D2CA] bg-white text-[#16211B] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#F1F0EC]"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Export CSV</span>
+                  </a>
+
+                  <a
+                    href={printableReportUrls.htmlUrl}
+                    download={`FloraView-Order-History-2026.html`}
+                    className="min-h-[42px] px-4 py-2 rounded-xl border border-[#D5D2CA] bg-white text-[#16211B] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#F1F0EC]"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download Printable (.html)</span>
+                  </a>
+
+                  <a
+                    href={printableReportUrls.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-[#1B4332] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#143326]"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Open Printable Tab &amp; Print</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-[#16211B] text-[#E8D5B5] text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Browser Print</span>
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </section>

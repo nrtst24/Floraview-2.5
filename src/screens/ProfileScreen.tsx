@@ -9,12 +9,9 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Store,
-  Ticket,
   Trash2,
   User,
   UserPlus,
-  XCircle,
 } from 'lucide-react';
 import { DAGUPAN_BARANGAYS } from '../data/dagupanCatalog';
 import {
@@ -48,15 +45,12 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   user,
   savedBouquets,
-  orders,
   onNavigate,
-  onTrackTicket,
   onUpdateProfile,
   onLoadBouquetIn3D,
   onLoadBouquetInAR,
   onAddSavedBouquetToCart,
   onDeleteSavedBouquet,
-  onCancelReservation,
   onSignOut,
 }) => {
   const [editingProfile, setEditingProfile] = useState(false);
@@ -69,8 +63,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const [addedSavedId, setAddedSavedId] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [orderError, setOrderError] = useState<string | null>(null);
 
   useEffect(() => {
     setDisplayName(user.displayName);
@@ -110,21 +102,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     window.setTimeout(() => {
       setAddedSavedId((curr) => (curr === record.id ? null : curr));
     }, 1400);
-  };
-
-  const handleCancelOrder = async (orderId: string) => {
-    if (!onCancelReservation) return;
-    setOrderError(null);
-    setCancellingId(orderId);
-    try {
-      await onCancelReservation(orderId);
-    } catch (err) {
-      setOrderError(
-        err instanceof Error ? err.message : 'Could not cancel reservation.',
-      );
-    } finally {
-      setCancellingId(null);
-    }
   };
 
   return (
@@ -423,145 +400,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                           )}
                         </button>
                       )}
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Dagupan Pickup Reservations & Live Tickets */}
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Ticket className="w-4 h-4 text-[#1B4332]" />
-              <h2 className="font-serif text-2xl font-bold text-[#16211B]">
-                Pickup Reservations &amp; Tickets ({orders.length})
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('tracker')}
-              className="min-h-[40px] px-3.5 rounded-xl bg-[#F1F0EC] text-[#16211B] text-xs font-semibold flex items-center gap-1.5 hover:bg-[#E4E2DC] cursor-pointer"
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Live Ticket Tracker</span>
-            </button>
-          </div>
-
-          {orderError && (
-            <div
-              role="alert"
-              className="p-3 rounded-xl bg-[#FDF2F4] border border-[#F3C6D0] text-xs font-medium text-[#8E1F3A]"
-            >
-              {orderError}
-            </div>
-          )}
-
-          {orders.length === 0 ? (
-            <div className="p-6 rounded-2xl bg-white border border-[#E4E2DC] text-sm text-[#536159]">
-              You haven&apos;t reserved any Dagupan pickup tickets yet.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {orders.map((ord) => {
-                const ticketCode = ord.ticketCode || ord.id;
-                const statusLabel =
-                  ord.status === 'cancelled'
-                    ? 'Cancelled'
-                    : ord.status === 'picked_up' || ord.status === 'delivered'
-                      ? 'Picked Up'
-                      : ord.status === 'ready_for_pickup' ||
-                          ord.status === 'out_for_delivery'
-                        ? 'Ready for Pickup'
-                        : 'Crafting Bouquet';
-                const canCancel =
-                  Boolean(onCancelReservation) && ord.status === 'preparing';
-
-                return (
-                  <article
-                    key={ord.id}
-                    className="rounded-2xl bg-white border border-[#E4E2DC] p-4 sm:p-5 space-y-2.5"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono tabular-nums text-xs font-bold text-[#1B4332]">
-                          Ticket #{ticketCode}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span
-                          className={`text-xs font-semibold ${
-                            ord.status === 'cancelled'
-                              ? 'text-[#8E1F3A]'
-                              : 'text-[#16211B]'
-                          }`}
-                        >
-                          {statusLabel}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-xs text-[#536159]">
-                          Pickup-Only
-                        </span>
-                      </div>
-                      <span className="font-mono tabular-nums text-sm font-bold text-[#16211B]">
-                        ₱{ord.totalAmount.toLocaleString()}
-                      </span>
-                    </div>
-
-                    <p className="text-sm text-[#16211B] font-medium">
-                      {ord.summaryText}
-                    </p>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                      <div className="text-xs text-[#536159] flex flex-wrap items-center gap-2">
-                        <span>
-                          {ord.pickupShopName || `Brgy. ${ord.barangay}`}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span>
-                          {ord.pickupDate ? `${ord.pickupDate} · ` : ''}
-                          {ord.pickupSlot || ord.deliverySlot}
-                        </span>
-                        {ord.assignedStaffName && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>Florist: {ord.assignedStaffName}</span>
-                          </>
-                        )}
-                        <span aria-hidden="true">·</span>
-                        <span>{ord.paymentMethod}</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {canCancel && (
-                          <button
-                            type="button"
-                            disabled={cancellingId === ord.id}
-                            onClick={() => handleCancelOrder(ord.id)}
-                            className="min-h-[38px] px-3 rounded-xl border border-[#F3C6D0] text-[#8E1F3A] text-xs font-semibold flex items-center gap-1 hover:bg-[#FDF2F4] cursor-pointer disabled:opacity-60 whitespace-nowrap"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>
-                              {cancellingId === ord.id
-                                ? 'Cancelling...'
-                                : 'Cancel Ticket'}
-                            </span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onTrackTicket
-                              ? onTrackTicket(ticketCode)
-                              : onNavigate('tracker')
-                          }
-                          className="min-h-[38px] px-3.5 rounded-xl bg-[#1B4332] text-white text-xs font-semibold flex items-center gap-1.5 hover:bg-[#143326] whitespace-nowrap cursor-pointer"
-                        >
-                          <Ticket className="w-3.5 h-3.5" />
-                          <span>Track Live</span>
-                        </button>
-                      </div>
                     </div>
                   </article>
                 );
